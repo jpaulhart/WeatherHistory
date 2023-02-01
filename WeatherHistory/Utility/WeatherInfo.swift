@@ -12,13 +12,13 @@ class WeatherInfo: ObservableObject {
     @Published var lastErrorMessage: String = ""
     
     @Published var locationData: LocationData = LocationData()
-    @Published var weatherData:  WeatherData  = WeatherData()
+    @Published var weatherKitData:  WeatherKitData  = WeatherKitData()
     
     @Published var locationDetail: LocationDetail = LocationDetail()
 
     init() { }
     
-    init(locationName: String) {
+    func getLocation(locationName: String) {
         let lrc = locationData.getLocationInfo(searchFor: locationName)
         if !lrc {
             lastErrorMessage = locationData.lastErrorMessage
@@ -26,10 +26,10 @@ class WeatherInfo: ObservableObject {
         }
         
         Task {
-            let wd = await weatherData.addCity(cityName: locationData.locationDetail.city,
-                                         countryName: locationData.locationDetail.country,
-                                         location: CLLocation(latitude: locationData.locationDetail.latitude,
-                                                              longitude: locationData.locationDetail.longitude))
+            let _ = await weatherKitData.addCity(cityName: locationData.locationDetail.city,
+                                               countryName: locationData.locationDetail.country,
+                                               location: CLLocation(latitude: locationData.locationDetail.latitude,
+                                                                    longitude: locationData.locationDetail.longitude))
             print("End of weather stuff")
         }
     }

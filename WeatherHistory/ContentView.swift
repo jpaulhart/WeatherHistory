@@ -6,11 +6,15 @@
 //
 
 import SwiftUI
+import CoreLocation
 
 struct ContentView: View {
     @State var searchNewLocation: Bool = false
     @State var searchFor: String = ""
-    @State var weatherInfo: WeatherInfo
+    @StateObject var weatherInfo: WeatherInfo = WeatherInfo()
+    
+    @StateObject var locationData: LocationData = LocationData()
+    @StateObject var weatherKitData:  WeatherKitData  = WeatherKitData()
     
     var body: some View {
         VStack(alignment: .leading) {
@@ -18,10 +22,13 @@ struct ContentView: View {
             HeaderView()
             InputView(searchFor: $searchFor,
                       searchNewLocation: $searchNewLocation,
-                      weatherInfo: $weatherInfo)
+                      weatherKitData: weatherKitData,
+                      locationData: locationData,
+                      weatherInfo: weatherInfo)
             
             Text("**Entered data:** \(searchFor)")
-            Text("**Location:** \(weatherInfo.locationDetail.city)")
+            Text("**Location:** \(locationData.locationDetail.city) \(locationData.locationDetail.country)")
+            Text("**Temperature:** \(weatherKitData.city.city) \(weatherKitData.city.country)")
 
             Spacer()
         }
@@ -49,9 +56,14 @@ struct HeaderView: View {
 }
 
 struct InputView: View {
+    @State var lastErrorMessage: String = ""
+    
     @Binding var searchFor: String
     @Binding var searchNewLocation: Bool
-    @Binding var weatherInfo: WeatherInfo
+
+    @ObservedObject var weatherKitData: WeatherKitData
+    @ObservedObject var locationData: LocationData
+    @ObservedObject var weatherInfo: WeatherInfo
 
     var body: some View {
         VStack {
@@ -83,13 +95,27 @@ struct InputView: View {
     
     func getNewLocation(searchFor: String) {
         print("Search for: \(searchFor)")
-        weatherInfo = WeatherInfo(locationName: searchFor)
+        //weatherInfo.getLocation(locationName: searchFor)
+        let lrc = locationData.getLocationInfo(searchFor: searchFor)
+        if !lrc {
+            lastErrorMessage = locationData.lastErrorMessage
+            return
+        }
+        
+        Task {
+            let _ = await weatherKitData.addCity(cityName: locationData.locationDetail.city,
+                                               countryName: locationData.locationDetail.country,
+                                               location: CLLocation(latitude: locationData.locationDetail.latitude,
+                                                                    longitude: locationData.locationDetail.longitude))
+            print("End of weather stuff")
+        }
+
         print("Search for: \(searchFor) complete")
     }
 }
 
-//struct ContentView_Previews: PreviewProvider {
-//    static var previews: some View {
-//        ContentView()
-//    }
-//}
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
+}

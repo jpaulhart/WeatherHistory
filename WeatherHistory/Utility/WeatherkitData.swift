@@ -27,12 +27,13 @@ import WeatherKit
 /// Description:
 ///     Collection of weather data for a city
 ///
-class WeatherData: ObservableObject {
+class WeatherKitData: ObservableObject {
 
     // =======================================================================
     // Proprtties
     // =======================================================================
-    var cities =  [String: WeatherCity]()
+    //var cities =  [String: WeatherCity]()
+    @Published var city = WeatherCity()
     
     // =======================================================================
     // Public Methods
@@ -40,8 +41,14 @@ class WeatherData: ObservableObject {
     
     func addCity(cityName: String, countryName: String, location: CLLocation) async -> WeatherCity {
         
-        let result = await fetchWeather(location: location)
         let newCity = WeatherCity ()
+        let result: (CurrentWeather, Forecast<HourWeather>, Forecast<DayWeather>)
+        
+        do {
+            result = try await fetchWeather(location: location)
+        } catch {
+            return newCity
+        }
         
         newCity.city = cityName
         newCity.country = countryName
@@ -51,7 +58,10 @@ class WeatherData: ObservableObject {
         newCity.days = result.2
         //newCity.dayHistory = result.3
         
-        cities[newCity.city] = newCity
+        DispatchQueue.main.async {
+            self.city = newCity
+        }
+        //cities[newCity.city] = newCity
         return newCity
         
     }
@@ -60,7 +70,9 @@ class WeatherData: ObservableObject {
     // Private Methods
     // =======================================================================
 
-    func fetchWeather(location: CLLocation) async -> (Weather?, Forecast<HourWeather>?, Forecast<DayWeather>?) {
+    func fetchWeather(location: CLLocation) async throws -> (CurrentWeather, Forecast<HourWeather>, Forecast<DayWeather>) {
+        
+        let service = WeatherService.shared
 
         print("Loading WeatherData for \(location)")
 
@@ -71,18 +83,19 @@ class WeatherData: ObservableObject {
         dateFormatter.dateFormat = "yyyy-MM-dd"
 
         // Convert String to Date
-        let sd = dateFormatter.date(from: startDate)
-        let ed = dateFormatter.date(from: endDate)
+//        let sd = dateFormatter.date(from: startDate)
+//        let ed = dateFormatter.date(from: endDate)
 
-        async let current = getWeather(location: location)
-        async let hour = getWeatherHour(location: location)
-        async let day = getWeatherDay(location: location)
+        do {
+            let (weather, hour, day) = try await service.weather(for: location, including: .current, .hourly, .daily)
+            return (weather, hour, day)
+        } catch {
+            print("Unexpected error: \(error).")
+            throw(error)
+        }
         // async let dayHistory = getWeatherDayHistory(location: location, startDate: sd!, endDate: ed!)
 
-        print("Loading WeatherData for \(location) complete")
 
-        return await (current, hour, day)
-        
     }
 
     private func getWeather(location: CLLocation) async -> Weather? {
@@ -171,7 +184,7 @@ class WeatherCity: Identifiable {
     var city: String = ""
     var country: String = ""
     var location: CLLocation = CLLocation(latitude: 0.0, longitude: 0.0)
-    var current: Weather?
+    var current: CurrentWeather?
     var hourly: Forecast<HourWeather>?
     var days: Forecast<DayWeather>?
     var dayHistory: Forecast<DayWeather>?
